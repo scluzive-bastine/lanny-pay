@@ -26,17 +26,17 @@ const fcsConfig = (feeConfiguration) => {
       errors.push(`${entity} is not valid!`)
     }
     let entityProperty = feeConfig.match(/\((.*?)\)/)?.at(1)
-    let type = feeConfig.match(/(FLAT[\_]?|PERC)+/)?.at(0)
-    let value = feeConfig.match(/([0-9]\:?\.?)*$/)?.at(0)
+    let feeType = feeConfig.match(/(FLAT[\_]?|PERC)+/)?.at(0)
+    let feeValue = feeConfig.match(/([0-9]\:?\.?)*$/)?.at(0)
     if (value.includes(':')) {
-      const fv = value.split(':')
+      const fv = feeValue.split(':')
       if (fv[0] > 0 && fv[1] > 0) {
       } else {
-        errors.push(`${value} is not valid fee`)
+        errors.push(`${feeValue} is not valid fee`)
       }
-    } else if (value > 0) {
+    } else if (feeValue > 0) {
     } else {
-      errors.push(`${value} is not valid fee`)
+      errors.push(`${feeValue} is not valid fee`)
     }
     // const fee = { id, currency, locale, entity, entityProperty, type, value }
   })
