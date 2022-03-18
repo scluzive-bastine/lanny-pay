@@ -1,32 +1,29 @@
 const PORT = 1000
 const express = require('express')
+const mongoose = require('mongoose')
 const bodyParser = require('body-parser')
+require('dotenv/config')
 const app = express()
-const { fcsConfig, error } = require('./feeConfig')
+const { feeComputation, computeTransactionFee } = require('./computeTransaction')
+
+const feeRoute = require('./routes/fee')
 
 app.use(bodyParser.json())
 app.use(bodyParser.urlencoded({ extended: false }))
 
-app.post('/fee', (req, res) => {
-  const feeData = req.body.FeeConfigurationSpec
-  const feeConfiguration = feeData.split('\n')
-  const saveConfigData = fcsConfig(feeConfiguration)
+app.use('/fee', feeRoute)
 
-  console.log(error())
+app.post('/compute-transaction-fee', (req, res) => {
+  const payload = req.body
+  const { Customer, CurrencyCountry, PaymentEntity, Amount } = payload
+  const data = feeComputation(payload)
+  res.send(data)
+})
+// app.post('/compute-transaction-fee', feeComputation)
 
-  if (error().length > 0) {
-    res.status(400).send({
-      status: 'Bad Request',
-      error: 'Invalid fee configuration spec.',
-      errorData: error(),
-    })
-  } else {
-    res.status(200).send({
-      status: 'ok',
-    })
-  }
-  // reset the errors array to avoid duplication
-  error().length = 0
+// connect DB
+mongoose.connect(process.env.DB_CONNECTION, () => {
+  console.log('Conneted to DB')
 })
 
 app.listen(PORT, () => {

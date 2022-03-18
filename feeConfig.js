@@ -1,14 +1,16 @@
+const Fee = require('./models/Fee')
 let errors = []
 
 /**
  * Fee Configuration Spec (FCS)
  */
 
-const fcsConfig = (feeConfiguration) => {
+const fcsConfig = async (feeConfiguration) => {
   const validEntity = ['CREDIT-CARD', 'DEBIT-CARD', 'BANK-ACCOUNT', 'USSD', 'WALLET-ID', '*']
   const validLocale = ['LOCL', 'INTL', '*']
+  let fee = []
 
-  feeConfiguration.forEach((feeConfig) => {
+  feeConfiguration.forEach(async (feeConfig) => {
     let id = feeConfig.match(/^[A-Z0-9]{8}/)?.at(0)
     let currency = feeConfig.match(/((?<=\d )\*)|( [A-Z]{3} )/)?.at(0)
     if (currency !== ' NGN ') {
@@ -28,7 +30,7 @@ const fcsConfig = (feeConfiguration) => {
     let entityProperty = feeConfig.match(/\((.*?)\)/)?.at(1)
     let feeType = feeConfig.match(/(FLAT[\_]?|PERC)+/)?.at(0)
     let feeValue = feeConfig.match(/([0-9]\:?\.?)*$/)?.at(0)
-    if (value.includes(':')) {
+    if (feeValue.includes(':')) {
       const fv = feeValue.split(':')
       if (fv[0] > 0 && fv[1] > 0) {
       } else {
@@ -38,8 +40,31 @@ const fcsConfig = (feeConfiguration) => {
     } else {
       errors.push(`${feeValue} is not valid fee`)
     }
-    // const fee = { id, currency, locale, entity, entityProperty, type, value }
+
+    // fee.push({ id, currency, locale, entity, entityProperty, feeType, feeValue })
+    // const fee = { id, currency, locale, entity, entityProperty, feeType, feeValue }
+
+    const feeSaveData = new Fee({
+      id: id,
+      currency: currency,
+      locale: locale,
+      entity: entity,
+      entityProperty: entityProperty,
+      type: feeType,
+      value: feeValue,
+    })
+    try {
+      // await Fee.updateOne(fee, fee, { upsert: true })
+      await feeSaveData.save()
+      console.log({ status: 'ok' })
+      // return data.json({
+      //   status: 'ok',
+      // })
+    } catch (error) {
+      console.log(error)
+    }
   })
+  return fee
 }
 
 const error = () => {

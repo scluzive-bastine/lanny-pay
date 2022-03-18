@@ -114,20 +114,3 @@
  * 
  * 
  */
-
-
-const FCSCONFIG = (data) {
-
-    // const feeData = req.body.FeeConfigurationSpec
-
-    // let id
-    // let currency
-    // let locale
-    // let entity
-    // let entityProperty
-    // let feeType
-    // let feeValue
-
-
-
-}
