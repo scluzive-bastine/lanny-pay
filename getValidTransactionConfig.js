@@ -14,7 +14,6 @@ let errors = []
 let data
 
 const connectRedisClient = async (FCSData, FCSCompleteData) => {
-  await FCSData
   await client.PING().then(
     async () => {
       saveFCSData(FCSData, FCSCompleteData)
