@@ -1,19 +1,33 @@
 const express = require('express')
 
-const Fee = require('./models/Fee')
-let updatedFee = []
 let errors = []
+
+const redis = require('redis')
+
+let REDIS_PORT = process.env.REDIS_PORT || 6379
+let client
+
+const connectRedis = async () => {
+  client = redis.createClient(REDIS_PORT)
+  await client.connect()
+}
+
+connectRedis()
 
 /**
  * Fee Configuration Spec (FCS)
  */
 
-const fcsConfig = async (req, res) => {
-  const feeData = req.body.FeeConfigurationSpec
-  const feeConfiguration = feeData.split('\n')
+const fcsConfig = (payload) => {
+  const feeConfiguration = payload
   const validEntity = ['CREDIT-CARD', 'DEBIT-CARD', 'BANK-ACCOUNT', 'USSD', 'WALLET-ID', '*']
   const validLocale = ['LOCL', 'INTL', '*']
   const feeTypeEntity = ['FLAT', 'PERC', 'FLAT_PERC']
+
+  let FeeCurrency = []
+  let FeeLocale = []
+  let FeeEntity = []
+  let EntityProperty = []
 
   feeConfiguration.forEach(async (feeConfig) => {
     let id = feeConfig.match(/^[A-Z0-9]{8}/)?.at(0)
@@ -51,28 +65,13 @@ const fcsConfig = async (req, res) => {
     } else {
       errors.push(`${value} is not valid fee`)
     }
-    updatedFee.push({ id, currency, locale, entity, entityProperty, type, value })
+    FeeCurrency.push(currency)
+    FeeLocale.push(locale)
+    FeeEntity.push(entity)
+    EntityProperty.push(entityProperty)
   })
 
-  if (error().length > 0) {
-    res.status(400).send({
-      status: 'Bad Request',
-      error: 'Invalid fee configuration spec.',
-      errorData: error(),
-    })
-  } else {
-    // saving the configuration if there's no error
-    const saved = updatedFee.forEach(async (item) => {
-      const saveFeee = new Fee(item)
-      await saveFeee.save()
-    })
-    await saved
-    res.status(200).send({
-      status: 'ok',
-    })
-  }
-
-  error().length = 0
+  return [FeeCurrency, FeeLocale, FeeEntity, EntityProperty]
 }
 
 const error = () => {

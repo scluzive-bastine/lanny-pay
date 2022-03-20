@@ -1,29 +1,72 @@
-const express = require('express')
-require('dotenv/config')
-const Fee = require('./models/Fee')
+const redis = require('redis')
+
+let REDIS_PORT = process.env.REDIS_PORT || 6379
+let client = redis.createClient(REDIS_PORT)
 let errors = []
 
 let data
-const feeComputation = async (payload) => {
-  // const payload = req.body
-  const { Customer, CurrencyCountry, PaymentEntity, Amount } = payload
+
+const connectRedisClient = async (FCSData, FCSCompleteData) => {
+  await FCSData
+  await client.PING().then(
+    async () => {
+      saveFCSData(FCSData, FCSCompleteData)
+    },
+    async () => {
+      client.on('error', (err) => console.log('Redis Client Error', err))
+      client = redis.createClient(REDIS_PORT)
+      await client.connect()
+      saveFCSData(FCSData, FCSCompleteData)
+    }
+  )
+}
+
+const saveFCSData = async (FCSData, FCSCompleteData) => {
+  await client.SET('currency', FCSData[0])
+  await client.SET('locale', FCSData[1])
+  await client.SET('entity', FCSData[2])
+  await client.SET('entityProperty', FCSData[3])
+  await client.SET('fcsCompleteData', FCSCompleteData)
+}
+
+const getFCS = async (transactionPayload) => {
+  let FCS = ''
+
+  await client.PING().then(
+    async () => {
+      FCS = await feeComputation(transactionPayload)
+    },
+    async () => {
+      client.on('error', (err) => console.log('Redis Client Error', err))
+      client = redis.createClient(REDIS_PORT)
+      await client.connect()
+      FCS = await feeComputation(transactionPayload)
+    }
+  )
+
+  return FCS
+}
+
+const getFullFCS = async () => {
+  let fullData = await client.get('fcsCompleteData')
+  fullData = fullData.split(',')
+  return fullData
+}
+
+const feeComputation = async (transactionPayload) => {
+  const { Customer, CurrencyCountry, PaymentEntity, Amount } = transactionPayload
   let payloadEntityProperty = Object.values(PaymentEntity).splice(0, 5)
-
-  const getFCS = async () => {
-    let FCS = await Fee.find().lean()
-    return FCS
-  }
-
   /**
         checking which FEE-ENTITY matches the
         PaymentEntity from the Payload
     */
   let feeEntityIndex = []
-  let feeEntityItem = []
-  let feeEntity = await Fee.find({}).select('entity -_id').lean()
+  let feeEntity = await client.get('entity')
+  feeEntity = feeEntity.split(',')
+
   feeEntity.forEach((item, index) => {
-    feeEntityItem.push(item.entity)
-    if (item.entity === PaymentEntity.Type || item.entity === '*') {
+    if (item.entity === PaymentEntity.Type || item === '*') {
+      console.log('entity item index: ', item, index)
       feeEntityIndex.push(index)
     }
   })
@@ -33,15 +76,16 @@ const feeComputation = async (payload) => {
    * matches PaymentEntity from the Payload
    */
   let entityPropertyIndex = []
-  let entityPropertyItem = []
 
-  let entityProperty = await Fee.find({}).select('entityProperty -_id').lean()
+  let entityProperty = await client.get('entityProperty')
+  entityProperty = entityProperty.split(',')
+
   entityProperty.forEach((item, index) => {
-    entityProperty.push(item.entityProperty)
-    if (payloadEntityProperty.includes(item.entityProperty) || item.entityProperty === '*') {
+    if (payloadEntityProperty.includes(item.entityProperty) || item === '*') {
       entityPropertyIndex.push(index)
     }
   })
+
   /**
    * Checking to see which array index match
    */
@@ -55,10 +99,10 @@ const feeComputation = async (payload) => {
    */
   if (sameIndex.length > 1) {
     for (i = 0; i <= sameIndex.length; i++) {
-      if (feeEntityItem[sameIndex[i]] === PaymentEntity.Type) {
+      if (feeEntity[sameIndex[i]] === PaymentEntity.Type) {
         feeEntityFCS.push(sameIndex[i])
       }
-      if (payloadEntityProperty.includes(entityPropertyItem[sameIndex[i]])) {
+      if (payloadEntityProperty.includes(entityProperty[sameIndex[i]])) {
         entityPropertyFCS.push(sameIndex[i])
       }
     }
@@ -69,26 +113,32 @@ const feeComputation = async (payload) => {
     errors.push('No Fee Configuration Spec. found')
   }
 
-  let fcs = await getFCS()
+  let fcs = await getFullFCS()
   let fcsValidData = ''
+  console.log('fcs; ', fcs)
 
   if (feeEntityFCS.length > 0) {
     fcsValidData = fcs[feeEntityFCS]
+  } else {
+    fcsValidData = fcs[entityPropertyFCS]
   }
 
   let AppliedFeeValue = ''
   let ChargeAmount = ''
   let SettlementAmount = ''
+  let appliedFeeID = fcsValidData.split(' ')[0]
+  let feeType = fcsValidData.split(' ')[6]
+  let feeValue = fcsValidData.split(' ')[7]
 
-  switch (fcsValidData.type) {
+  switch (feeType) {
     case 'FLAT':
-      AppliedFeeValue = fcsValidData.value
+      AppliedFeeValue = feeValue
       break
     case 'PERC':
-      AppliedFeeValue = (fcsValidData.value * Number(Amount)) / 100
+      AppliedFeeValue = (feeValue * Number(Amount)) / 100
       break
     case 'FLAT_PERC':
-      let flatPercFee = fcsValidData.value
+      let flatPercFee = feeValue
       let [flat, perc] = flatPercFee.split(':')
       AppliedFeeValue = Number(flat) + (Number(Amount) * Number(perc)) / 100
     default:
@@ -103,7 +153,7 @@ const feeComputation = async (payload) => {
   SettlementAmount = ChargeAmount - AppliedFeeValue
 
   const calculatedFee = {
-    AppliedFeeID: fcsValidData.id,
+    AppliedFeeID: appliedFeeID,
     AppliedFeeValue: AppliedFeeValue,
     ChargeAmount: ChargeAmount,
     SettlementAmount: SettlementAmount,
@@ -116,4 +166,4 @@ const error = () => {
   return errors
 }
 
-module.exports = { feeComputation, error }
+module.exports = { feeComputation, connectRedisClient, saveFCSData, getFCS, error }
