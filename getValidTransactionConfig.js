@@ -5,7 +5,13 @@ let client
 
 const REDIS_CONFIG = process.env.REDIS_URL
 if (REDIS_CONFIG) {
-  client = redis.createClient({ url: REDIS_CONFIG })
+  client = redis.createClient({
+    url: process.env.REDIS_URL,
+    socket: {
+      tls: true,
+      rejectUnauthorized: false,
+    },
+  })
 } else {
   client = redis.createClient(REDIS_PORT)
 }
