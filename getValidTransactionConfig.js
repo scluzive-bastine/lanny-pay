@@ -1,7 +1,14 @@
 const redis = require('redis')
 
 let REDIS_PORT = process.env.REDIS_PORT || 6379
-let client = redis.createClient(REDIS_PORT)
+let client
+
+const REDIS_CONFIG = process.env.REDIS_URL
+if (REDIS_CONFIG) {
+  client = redis.createClient({ url: REDIS_CONFIG })
+} else {
+  client = redis.createClient(REDIS_PORT)
+}
 let errors = []
 
 let data
@@ -14,7 +21,6 @@ const connectRedisClient = async (FCSData, FCSCompleteData) => {
     },
     async () => {
       client.on('error', (err) => console.log('Redis Client Error', err))
-      client = redis.createClient(REDIS_PORT)
       await client.connect()
       saveFCSData(FCSData, FCSCompleteData)
     }

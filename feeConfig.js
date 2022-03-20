@@ -7,11 +7,16 @@ const redis = require('redis')
 let REDIS_PORT = process.env.REDIS_PORT || 6379
 let client
 
-const connectRedis = async () => {
+const REDIS_CONFIG = process.env.REDIS_URL
+if (REDIS_CONFIG) {
+  client = redis.createClient({ url: REDIS_CONFIG })
+} else {
   client = redis.createClient(REDIS_PORT)
-  await client.connect()
 }
 
+const connectRedis = async () => {
+  await client.connect()
+}
 connectRedis()
 
 /**
