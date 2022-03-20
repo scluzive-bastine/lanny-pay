@@ -18,6 +18,8 @@ const feeComputation = async (payload) => {
         checking which FEE-ENTITY matches the
         PaymentEntity from the Payload
     */
+  let feeEntityIndex = []
+  let feeEntityItem = []
   let feeEntity = await Fee.find({}).select('entity -_id').lean()
   feeEntity.forEach((item, index) => {
     feeEntityItem.push(item.entity)
@@ -40,7 +42,6 @@ const feeComputation = async (payload) => {
       entityPropertyIndex.push(index)
     }
   })
-
   /**
    * Checking to see which array index match
    */
