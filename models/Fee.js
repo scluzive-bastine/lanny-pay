@@ -9,6 +9,5 @@ const feeSchema = mongoose.Schema({
   type: String,
   value: String,
 })
-feeSchema.index({ locale: 1, entity: 1, entityProperty: 1 })
 
 module.exports = mongoose.model('Fee', feeSchema)

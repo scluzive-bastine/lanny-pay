@@ -3,24 +3,16 @@ const express = require('express')
 const mongoose = require('mongoose')
 const bodyParser = require('body-parser')
 require('dotenv/config')
+
+const { fcsConfig, error } = require('./feeConfig')
+const computeTransactionPayload = require('./computeTransaction')
+
 const app = express()
-const { feeComputation, computeTransactionFee } = require('./computeTransaction')
-
-const feeRoute = require('./routes/fee')
-
 app.use(bodyParser.json())
-app.use(bodyParser.urlencoded({ extended: false }))
 
-app.use('/fee', feeRoute)
+app.post('/fees', fcsConfig)
 
-app.post('/compute-transaction-fee', (req, res) => {
-  const payload = req.body
-  const { Customer, CurrencyCountry, PaymentEntity, Amount } = payload
-  const data = feeComputation(payload)
-  res.send(data)
-})
-// app.post('/compute-transaction-fee', feeComputation)
-
+app.post('/compute-transaction-fee', computeTransactionPayload)
 // connect DB
 mongoose.connect(process.env.DB_CONNECTION, () => {
   console.log('Conneted to DB')

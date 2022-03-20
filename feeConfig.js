@@ -1,14 +1,19 @@
+const express = require('express')
+
 const Fee = require('./models/Fee')
+let updatedFee = []
 let errors = []
 
 /**
  * Fee Configuration Spec (FCS)
  */
 
-const fcsConfig = async (feeConfiguration) => {
+const fcsConfig = async (req, res) => {
+  const feeData = req.body.FeeConfigurationSpec
+  const feeConfiguration = feeData.split('\n')
   const validEntity = ['CREDIT-CARD', 'DEBIT-CARD', 'BANK-ACCOUNT', 'USSD', 'WALLET-ID', '*']
   const validLocale = ['LOCL', 'INTL', '*']
-  let fee = []
+  const feeTypeEntity = ['FLAT', 'PERC', 'FLAT_PERC']
 
   feeConfiguration.forEach(async (feeConfig) => {
     let id = feeConfig.match(/^[A-Z0-9]{8}/)?.at(0)
@@ -28,43 +33,46 @@ const fcsConfig = async (feeConfiguration) => {
       errors.push(`${entity} is not valid!`)
     }
     let entityProperty = feeConfig.match(/\((.*?)\)/)?.at(1)
-    let feeType = feeConfig.match(/(FLAT[\_]?|PERC)+/)?.at(0)
-    let feeValue = feeConfig.match(/([0-9]\:?\.?)*$/)?.at(0)
-    if (feeValue.includes(':')) {
-      const fv = feeValue.split(':')
+    if (!entityProperty.trim().length > 0 && entityProperty !== '*') {
+      errors.push(`entity property is not valid!`)
+    }
+    let type = feeConfig.match(/(FLAT[\_]?|PERC)+/)?.at(0)
+    if (!feeTypeEntity.includes(type)) {
+      errors.push(`Fee type is not valid`)
+    }
+    let value = feeConfig.match(/([0-9]\:?\.?)*$/)?.at(0)
+    if (value.includes(':')) {
+      const fv = value.split(':')
       if (fv[0] > 0 && fv[1] > 0) {
       } else {
-        errors.push(`${feeValue} is not valid fee`)
+        errors.push(`${value} is not valid fee`)
       }
-    } else if (feeValue > 0) {
+    } else if (value > 0) {
     } else {
-      errors.push(`${feeValue} is not valid fee`)
+      errors.push(`${value} is not valid fee`)
     }
-
-    // fee.push({ id, currency, locale, entity, entityProperty, feeType, feeValue })
-    // const fee = { id, currency, locale, entity, entityProperty, feeType, feeValue }
-
-    const feeSaveData = new Fee({
-      id: id,
-      currency: currency,
-      locale: locale,
-      entity: entity,
-      entityProperty: entityProperty,
-      type: feeType,
-      value: feeValue,
-    })
-    try {
-      // await Fee.updateOne(fee, fee, { upsert: true })
-      await feeSaveData.save()
-      console.log({ status: 'ok' })
-      // return data.json({
-      //   status: 'ok',
-      // })
-    } catch (error) {
-      console.log(error)
-    }
+    updatedFee.push({ id, currency, locale, entity, entityProperty, type, value })
   })
-  return fee
+
+  if (error().length > 0) {
+    res.status(400).send({
+      status: 'Bad Request',
+      error: 'Invalid fee configuration spec.',
+      errorData: error(),
+    })
+  } else {
+    // saving the configuration if there's no error
+    const saved = updatedFee.forEach(async (item) => {
+      const saveFeee = new Fee(item)
+      await saveFeee.save()
+    })
+    await saved
+    res.status(200).send({
+      status: 'ok',
+    })
+  }
+
+  error().length = 0
 }
 
 const error = () => {
