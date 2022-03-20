@@ -2,13 +2,17 @@ const express = require('express')
 const mongoose = require('mongoose')
 const bodyParser = require('body-parser')
 require('dotenv/config')
-const PORT = 1000
+let PORT = process.env.PORT || 4000
 
 const { fcsConfig, error } = require('./feeConfig')
 const computeTransactionPayload = require('./computeTransaction')
 
 const app = express()
 app.use(bodyParser.json())
+
+app.get('/', (req, res) => {
+  res.send('lannister pay')
+})
 
 app.post('/fees', fcsConfig)
 
