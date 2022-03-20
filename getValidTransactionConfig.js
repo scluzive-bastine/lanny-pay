@@ -10,7 +10,7 @@ const feeComputation = async (payload) => {
   let payloadEntityProperty = Object.values(PaymentEntity).splice(0, 5)
 
   const getFCS = async () => {
-    let FCS = await Fee.find()
+    let FCS = await Fee.find().lean()
     return FCS
   }
 
